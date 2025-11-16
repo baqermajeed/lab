@@ -8,11 +8,13 @@ import 'package:intl/intl.dart';
 class CasesProvider extends ChangeNotifier {
   final CaseService _caseService;
   final String employeeId;
+  final String? employeeEmail;
 
-  CasesProvider({required CaseService caseService, required this.employeeId})
-    : _caseService = caseService {
+  CasesProvider({required CaseService caseService, required this.employeeId, this.employeeEmail})
+      : _caseService = caseService {
+    final emailLower = (employeeEmail ?? '').toLowerCase();
     _sub = _caseService
-        .watchCasesForEmployee(employeeId)
+        .watchCasesForEmployeeOrEmail(employeeId, emailLower)
         .listen((items) => _onCases(items));
   }
 

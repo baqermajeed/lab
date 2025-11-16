@@ -35,15 +35,37 @@ class LabCase {
 
   factory LabCase.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+
+    DateTime parseCreatedAt(dynamic v) {
+      if (v is Timestamp) return v.toDate();
+      if (v is String) {
+        final d = DateTime.tryParse(v);
+        if (d != null) return d;
+      }
+      if (v is num) {
+        try {
+          return DateTime.fromMillisecondsSinceEpoch(v.toInt());
+        } catch (_) {}
+      }
+      // fallback: تاريخ قديم لتجنّب كسر الترتيب
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    int parseUnits(dynamic v) {
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v) ?? 0;
+      return 0;
+    }
+
     return LabCase(
       id: doc.id,
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      employeeId: data['employeeId'] as String,
-      employeeName: data['employeeName'] as String,
-      caseName: data['caseName'] as String,
-      unitType: data['unitType'] as String,
-      unitsCount: (data['unitsCount'] as num).toInt(),
-      doctorName: data['doctorName'] as String,
+      createdAt: parseCreatedAt(data['createdAt'] ?? data['Timestamp']),
+      employeeId: (data['employeeId'] as String? ?? (data['Email'] as String? ?? data['email'] as String? ?? '')),
+      employeeName: (data['employeeName'] as String? ?? data['EmployeeName'] as String? ?? ''),
+      caseName: (data['caseName'] as String? ?? data['CaseName'] as String? ?? ''),
+      unitType: (data['unitType'] as String? ?? data['UnitType'] as String? ?? ''),
+      unitsCount: parseUnits(data['unitsCount'] ?? data['UnitsCount']),
+      doctorName: (data['doctorName'] as String? ?? data['DoctorName'] as String? ?? ''),
     );
   }
 }

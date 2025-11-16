@@ -273,6 +273,7 @@ class _EmployeesList extends StatelessWidget {
                           builder: (_) => ManagerUserCasesScreen(
                             employeeId: doc.id,
                             employeeName: name,
+                            employeeEmail: (doc.data()['email'] as String?)?.toLowerCase(),
                           ),
                         ),
                       );
@@ -281,6 +282,7 @@ class _EmployeesList extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
                             padding: const EdgeInsets.all(14),
@@ -292,43 +294,95 @@ class _EmployeesList extends StatelessWidget {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: Text(
-                              name,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // إحصائيات الحالة والوحدات لكل موظف (تجلب من collectionGroup وتفلتر حسب uid أو email)
+                                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                                  stream: FirebaseFirestore.instance
+                                      .collectionGroup('cases')
+                                      .snapshots(),
+                                  builder: (context, cs) {
+                                    if (!cs.hasData) {
+                                      return Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: const [
+                                          _StatChip(label: 'حالات', value: '0', color: AppColors.info),
+                                          SizedBox(width: 8),
+                                          _StatChip(label: 'وحدات', value: '0', color: AppColors.success),
+                                        ],
+                                      );
+                                    }
+
+                                    // نطاق الشهر المحاسبي الحالي: من 14 إلى 13 الشهر التالي
+                                    final now = DateTime.now();
+                                    final start = DateTime(now.year, now.month, 14, 0, 0, 0);
+                                    final end = DateTime(now.year, now.month + 1, 13, 23, 59, 59);
+
+                                    final uidLower = doc.id.toLowerCase();
+                                    final emailLower = ((doc.data()['email'] as String?) ?? '').toLowerCase();
+
+                                    final docs = cs.data!.docs.where((d) {
+                                      final data = d.data();
+                                      final empId = (data['employeeId'] as String?)?.toLowerCase();
+                                      final emailA = (data['Email'] as String?)?.toLowerCase();
+                                      final emailB = (data['email'] as String?)?.toLowerCase();
+                                      final matchesEmployee = empId == uidLower ||
+                                          empId == emailLower ||
+                                          emailA == emailLower ||
+                                          emailB == emailLower;
+
+                                      if (!matchesEmployee) return false;
+
+                                      // تصفية حسب التاريخ داخل نطاق الشهر المحاسبي
+                                      final createdRaw = data['createdAt'];
+                                      DateTime? createdAt;
+                                      if (createdRaw is Timestamp) {
+                                        createdAt = createdRaw.toDate();
+                                      } else if (createdRaw is num) {
+                                        // دعم millisSinceEpoch إن وجدت
+                                        createdAt = DateTime.fromMillisecondsSinceEpoch(createdRaw.toInt());
+                                      } else if (createdRaw is String) {
+                                        createdAt = DateTime.tryParse(createdRaw);
+                                      }
+                                      if (createdAt == null) return false;
+                                      return createdAt.isAfter(start.subtract(const Duration(seconds: 1))) &&
+                                          createdAt.isBefore(end.add(const Duration(seconds: 1)));
+                                    }).toList();
+
+                                    final casesCount = docs.length;
+                                    final unitsTotal = docs.fold<int>(0, (s, d) {
+                                      final data = d.data();
+                                      final v = data['unitsCount'] ?? data['UnitsCount'];
+                                      if (v is num) return s + v.toInt();
+                                      if (v is String) return s + (int.tryParse(v) ?? 0);
+                                      return s;
+                                    });
+
+                                    return Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _StatChip(label: 'حالات', value: '$casesCount', color: AppColors.info),
+                                        const SizedBox(width: 8),
+                                        _StatChip(label: 'وحدات', value: '$unitsTotal', color: AppColors.success),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
-                          // إحصائيات الحالة والوحدات لكل موظف
-                          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                            stream: FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(doc.id)
-                                .collection('cases')
-                                .snapshots(),
-                            builder: (context, cs) {
-                              final casesCount = cs.data?.docs.length ?? 0;
-                              final unitsTotal = cs.hasData
-                                  ? cs.data!.docs.fold<int>(0, (s, d) {
-                                      final data = d.data();
-                                      final n = (data['unitsCount'] as num?)?.toInt() ?? 0;
-                                      return s + n;
-                                    })
-                                  : 0;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _StatChip(label: 'حالات', value: '$casesCount', color: AppColors.info),
-                                  const SizedBox(width: 8),
-                                  _StatChip(label: 'وحدات', value: '$unitsTotal', color: AppColors.success),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textTertiary, size: 18),
-                                ],
-                              );
-                            },
-                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.textTertiary, size: 18),
                         ],
                       ),
                     ),

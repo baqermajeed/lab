@@ -14,9 +14,10 @@ class CasesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.read<AuthProvider>().currentUser!;
+
+    // القراءة من Firestore دائماً
     return ChangeNotifierProvider(
-      create: (_) =>
-          CasesProvider(caseService: CaseService(), employeeId: user.uid),
+      create: (_) => CasesProvider(caseService: CaseService(), employeeId: user.uid, employeeEmail: user.email),
       child: Consumer<CasesProvider>(
         builder: (context, prov, _) {
           return Scaffold(
@@ -37,9 +38,7 @@ class CasesScreen extends StatelessWidget {
                     )
                   : Column(
                       children: [
-                        // شريط التصفية والإحصائيات
                         _buildFilterBar(context, prov),
-                        // قائمة الكارتات
                         Expanded(
                           child: prov.filteredCases.isEmpty
                               ? _buildEmptyState()
@@ -228,131 +227,22 @@ class CasesScreen extends StatelessWidget {
     );
   }
 
+
   void _showMonthPicker(BuildContext context, CasesProvider prov) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'اختر الشهر',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: 12,
-                  itemBuilder: (context, index) {
-                    final monthDate = DateTime(
-                      DateTime.now().year,
-                      DateTime.now().month - index,
-                      14,
-                    );
-                    final label = DateFormat('MMMM yyyy', 'ar').format(monthDate);
-                    final isSelected = prov.selectedMonth?.year == monthDate.year &&
-                        prov.selectedMonth?.month == monthDate.month;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            prov.setSelectedMonth(monthDate);
-                            Navigator.pop(context);
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: isSelected
-                                  ? const LinearGradient(
-                                      colors: AppColors.cardGradient,
-                                    )
-                                  : null,
-                              color: isSelected ? null : AppColors.surfaceLight,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  label,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w700
-                                        : FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : AppColors.textPrimary,
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    color: Colors.white,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        prov.clearMonthFilter();
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.textSecondary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text('عرض الكل'),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return _MonthPickerBody(
+          isSelected: (d) => prov.selectedMonth?.year == d.year && prov.selectedMonth?.month == d.month,
+          onSelect: (d) => prov.setSelectedMonth(d),
+          onClear: () => prov.clearMonthFilter(),
         );
       },
     );
   }
+
+
 
   Widget _buildEmptyState() {
     return Center(
@@ -703,5 +593,229 @@ class CasesScreen extends StatelessWidget {
     if (result == true) {
       await prov.deleteCase(labCase.id);
     }
+  }
+}
+
+class _MonthPickerBody extends StatelessWidget {
+  final bool Function(DateTime) isSelected;
+  final ValueChanged<DateTime> onSelect;
+  final VoidCallback onClear;
+  const _MonthPickerBody({required this.isSelected, required this.onSelect, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.borderColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(20),
+            child: Text(
+              'اختر الشهر',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: 12,
+              itemBuilder: (context, index) {
+                final monthDate = DateTime(
+                  DateTime.now().year,
+                  DateTime.now().month - index,
+                  14,
+                );
+                final label = DateFormat('MMMM yyyy', 'ar').format(monthDate);
+                final chosen = isSelected(monthDate);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        onSelect(monthDate);
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: chosen ? const LinearGradient(colors: AppColors.cardGradient) : null,
+                          color: chosen ? null : AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: chosen ? FontWeight.w700 : FontWeight.w600,
+                                color: chosen ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                            if (chosen)
+                              const Icon(Icons.check_circle_rounded, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    onClear();
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.textSecondary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text('عرض الكل'),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _buildDetailRow(
+  IconData icon,
+  String label,
+  String value,
+  Color color,
+) {
+  return Row(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: color,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textTertiary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+Future<void> _showDeleteDialog(
+  BuildContext context,
+  CasesProvider prov,
+  LabCase labCase,
+) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.danger.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.warning_rounded,
+              color: AppColors.danger,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Text('تأكيد الحذف'),
+        ],
+      ),
+      content: Text(
+        'هل أنت متأكد من حذف حالة "${labCase.caseName}"؟',
+        style: const TextStyle(
+          fontSize: 15,
+          color: AppColors.textSecondary,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(
+            'إلغاء',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.danger,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('حذف'),
+        ),
+      ],
+    ),
+  );
+
+  if (result == true) {
+    await prov.deleteCase(labCase.id);
   }
 }

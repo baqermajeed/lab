@@ -12,11 +12,24 @@ class CaseService {
     await _cases(labCase.employeeId).add(labCase.toMap());
   }
 
-  Stream<List<LabCase>> watchCasesForEmployee(String employeeId) {
-    return _cases(employeeId)
-        .orderBy('createdAt', descending: true)
+  Stream<List<LabCase>> watchCasesForEmployeeOrEmail(String employeeId, String employeeEmailLower) {
+    // نقرأ كل الحالات عبر collectionGroup ثم نفلتر محلياً إما بالـ uid أو بالإيميل (يدعم حقول مختلفة: employeeId أو Email/email)
+    return _db
+        .collectionGroup('cases')
         .snapshots()
-        .map((snap) => snap.docs.map((d) => LabCase.fromDoc(d)).toList());
+        .map((snap) {
+          final lowerUid = employeeId.toLowerCase();
+          final list = snap.docs.where((d) {
+            final data = d.data();
+            final empId = (data['employeeId'] as String?)?.toLowerCase();
+            final emailA = (data['Email'] as String?)?.toLowerCase();
+            final emailB = (data['email'] as String?)?.toLowerCase();
+            return empId == lowerUid || empId == employeeEmailLower ||
+                   emailA == employeeEmailLower || emailB == employeeEmailLower;
+          }).map((d) => LabCase.fromDoc(d)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
   }
 
   // Watch all cases across all employees (for admin searches)

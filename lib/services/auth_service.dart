@@ -28,8 +28,9 @@ class AuthService {
     final ref = _db.collection('users').doc(user.uid);
     await ref.set({
       'displayName': user.displayName ?? '',
-      'email': user.email ?? '',
+      'email': (user.email ?? '').toLowerCase(),
       'role': role,
+      'entryMode': 'app', // الافتراضي: الإدخال من التطبيق
     }, SetOptions(merge: true));
   }
 
@@ -41,8 +42,9 @@ class AuthService {
     final role = email == 'manager@farahlab.com' ? 'manager' : 'employee';
     await ref.set({
       'displayName': user.displayName ?? '',
-      'email': user.email ?? '',
+      'email': email,
       'role': role,
+      'entryMode': 'app',
     });
   }
 }

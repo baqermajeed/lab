@@ -63,3 +63,11 @@ class AppText {
   static const String appTitle = 'مختبرات فرح';
   static const String casesTitle = 'الحالات المسجلة';
 }
+
+// إعدادات خارجية (املأها قبل البناء)
+class AppConfig {
+  // ضع رابط الويب آب من Apps Script هنا
+  static const String webAppUrl = 'https://script.google.com/macros/s/AKfycbxoBRCaov5CWaHjyd-G9TKWDZovNTMF-zzIZP0gSet41ipxRdfgm_TGzzcJz2sevdjLtA/exec';
+  // مفتاح بسيط للتحقق (?key=...)
+  static const String webAppSecret = 'CHANGE_ME_SECRET_6kQ0tY4fD9rM1aZ7pB3xV2cN8uH5wJ0R3sT6yL1qP8';
+}

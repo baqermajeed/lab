@@ -13,11 +13,13 @@ import 'package:provider/provider.dart';
 class ManagerUserCasesScreen extends StatefulWidget {
   final String employeeId;
   final String employeeName;
+  final String? employeeEmail;
 
   const ManagerUserCasesScreen({
     super.key,
     required this.employeeId,
     required this.employeeName,
+    this.employeeEmail,
   });
 
   @override
@@ -38,7 +40,7 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) =>
-          CasesProvider(caseService: CaseService(), employeeId: widget.employeeId),
+          CasesProvider(caseService: CaseService(), employeeId: widget.employeeId, employeeEmail: widget.employeeEmail),
       child: Consumer<CasesProvider>(
         builder: (context, prov, _) {
           return Scaffold(
