@@ -306,7 +306,7 @@ class _EmployeesList extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // إحصائيات الحالة والوحدات لكل موظف (تجلب من collectionGroup وتفلتر حسب uid أو email)
+                                // إحصائيات الحالة والوحدات لكل موظف (تجلب من collectionGroup وتفلتر حسب uid أو email أو employeeName)
                                 StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                                   stream: FirebaseFirestore.instance
                                       .collectionGroup('cases')
@@ -323,40 +323,26 @@ class _EmployeesList extends StatelessWidget {
                                       );
                                     }
 
-                                    // نطاق الشهر المحاسبي الحالي: من 14 إلى 13 الشهر التالي
-                                    final now = DateTime.now();
-                                    final start = DateTime(now.year, now.month, 14, 0, 0, 0);
-                                    final end = DateTime(now.year, now.month + 1, 13, 23, 59, 59);
-
                                     final uidLower = doc.id.toLowerCase();
                                     final emailLower = ((doc.data()['email'] as String?) ?? '').toLowerCase();
+                                    final nameLower = name.toLowerCase();
 
                                     final docs = cs.data!.docs.where((d) {
                                       final data = d.data();
-                                      final empId = (data['employeeId'] as String?)?.toLowerCase();
-                                      final emailA = (data['Email'] as String?)?.toLowerCase();
-                                      final emailB = (data['email'] as String?)?.toLowerCase();
-                                      final matchesEmployee = empId == uidLower ||
-                                          empId == emailLower ||
-                                          emailA == emailLower ||
-                                          emailB == emailLower;
+                                      final empId = (data['employeeId'] as String?)?.toLowerCase() ?? '';
+                                      final emailA = (data['Email'] as String?)?.toLowerCase() ?? '';
+                                      final emailB = (data['email'] as String?)?.toLowerCase() ?? '';
+                                      
+                                      final nameA = (data['EmployeeName'] as String?)?.toLowerCase() ?? '';
+                                      final nameB = (data['employeeName'] as String?)?.toLowerCase() ?? '';
 
-                                      if (!matchesEmployee) return false;
+                                      // المطابقة على UID أو Email أو EmployeeName
+                                      final matchesEmployee = 
+                                          (uidLower.isNotEmpty && empId == uidLower) ||
+                                          (emailLower.isNotEmpty && (emailA == emailLower || emailB == emailLower || empId == emailLower)) ||
+                                          (nameLower.isNotEmpty && (nameA == nameLower || nameB == nameLower));
 
-                                      // تصفية حسب التاريخ داخل نطاق الشهر المحاسبي
-                                      final createdRaw = data['createdAt'];
-                                      DateTime? createdAt;
-                                      if (createdRaw is Timestamp) {
-                                        createdAt = createdRaw.toDate();
-                                      } else if (createdRaw is num) {
-                                        // دعم millisSinceEpoch إن وجدت
-                                        createdAt = DateTime.fromMillisecondsSinceEpoch(createdRaw.toInt());
-                                      } else if (createdRaw is String) {
-                                        createdAt = DateTime.tryParse(createdRaw);
-                                      }
-                                      if (createdAt == null) return false;
-                                      return createdAt.isAfter(start.subtract(const Duration(seconds: 1))) &&
-                                          createdAt.isBefore(end.add(const Duration(seconds: 1)));
+                                      return matchesEmployee;
                                     }).toList();
 
                                     final casesCount = docs.length;

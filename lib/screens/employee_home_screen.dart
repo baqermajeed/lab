@@ -68,7 +68,12 @@ class _EmployeeHomeScreenState extends State<EmployeeHomeScreen> {
     final user = auth.currentUser!;
     return ChangeNotifierProvider(
       create: (_) =>
-          CasesProvider(caseService: CaseService(), employeeId: user.uid, employeeEmail: user.email),
+          CasesProvider(
+            caseService: CaseService(),
+            employeeId: user.uid,
+            employeeEmail: user.email,
+            employeeName: user.displayName,
+          ),
       child: Builder(
         builder: (context) {
           final casesProv = context.watch<CasesProvider>();

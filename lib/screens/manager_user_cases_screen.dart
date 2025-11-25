@@ -4,11 +4,13 @@ import 'package:farah_new_lab/services/case_service.dart';
 import 'package:farah_new_lab/widgets/app_shell.dart';
 import 'package:farah_new_lab/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as xcel;
 import 'package:file_saver/file_saver.dart';
 import 'dart:typed_data';
 import 'package:provider/provider.dart';
+import 'dart:async';
 
 class ManagerUserCasesScreen extends StatefulWidget {
   final String employeeId;
@@ -29,18 +31,35 @@ class ManagerUserCasesScreen extends StatefulWidget {
 class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounce;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value.toLowerCase();
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) =>
-          CasesProvider(caseService: CaseService(), employeeId: widget.employeeId, employeeEmail: widget.employeeEmail),
+          CasesProvider(
+            caseService: CaseService(),
+            employeeId: widget.employeeId,
+            employeeEmail: widget.employeeEmail,
+            employeeName: widget.employeeName,
+          ),
       child: Consumer<CasesProvider>(
         builder: (context, prov, _) {
           return Scaffold(
@@ -87,65 +106,156 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
                           ),
                           child: Column(
                             children: [
-                              // محدد الشهر
-                              GestureDetector(
-                                onTap: () => _showMonthPicker(context, prov),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: AppColors.cardGradient,
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppColors.primary.withOpacity(0.3),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.calendar_month_rounded,
-                                            color: Colors.white,
-                                            size: 24,
+                              // أزرار الفلترة
+                              Row(
+                                children: [
+                                  // محدد الشهر
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => _showMonthPicker(context, prov),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: AppColors.cardGradient,
                                           ),
-                                          const SizedBox(width: 12),
-                                          Text(
-                                            prov.selectedMonthLabel,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.primary.withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.calendar_month_rounded,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Text(
+                                                    prov.selectedMonthLabel,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w700,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      const Icon(
-                                        Icons.arrow_drop_down_circle,
-                                        color: Colors.white,
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 12),
+                                  // محدد التاريخ (من - إلى)
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => _showDateRangePicker(context, prov),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFF06B6D4), Color(0xFF0891B2)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(16),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.secondary.withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.date_range_rounded,
+                                                  color: Colors.white,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Builder(
+                                                    builder: (context) {
+                                                      try {
+                                                        final start = prov.startDate;
+                                                        final end = prov.endDate;
+                                                        String text = 'من - إلى';
+                                                        if (start != null && end != null) {
+                                                          try {
+                                                            text = '${DateFormat('dd/MM', 'ar').format(start)} - ${DateFormat('dd/MM', 'ar').format(end)}';
+                                                          } catch (e) {
+                                                            text = '${start.day}/${start.month} - ${end.day}/${end.month}';
+                                                          }
+                                                        }
+                                                        return Text(
+                                                          text,
+                                                          style: const TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w700,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        );
+                                                      } catch (e) {
+                                                        debugPrint('Error displaying date range: $e');
+                                                        return const Text(
+                                                          'من - إلى',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                            fontSize: 14,
+                                                            fontWeight: FontWeight.w700,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        );
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const Icon(
+                                              Icons.arrow_drop_down,
+                                              color: Colors.white,
+                                              size: 20,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               // حقل البحث
                               TextField(
                                 controller: _searchController,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _searchQuery = value.toLowerCase();
-                                  });
-                                },
+                                onChanged: _onSearchChanged,
                                 decoration: InputDecoration(
                                   hintText: 'ابحث عن حالة...',
                                   prefixIcon: const Icon(
@@ -176,22 +286,32 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildStatCard(
-                                      context,
-                                      'عدد الحالات',
-                                      '${prov.filteredCases.length}',
-                                      Icons.medical_information_rounded,
-                                      AppColors.info,
+                                    child: Selector<CasesProvider, int>(
+                                      selector: (_, p) => p.filteredCases.length,
+                                      builder: (context, count, __) {
+                                        return _buildStatCard(
+                                          context,
+                                          'عدد الحالات',
+                                          '$count',
+                                          Icons.medical_information_rounded,
+                                          AppColors.info,
+                                        );
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
-                                    child: _buildStatCard(
-                                      context,
-                                      'إجمالي الوحدات',
-                                      '${prov.totalUnits}',
-                                      Icons.inventory_2_rounded,
-                                      AppColors.success,
+                                    child: Selector<CasesProvider, int>(
+                                      selector: (_, p) => p.totalUnits,
+                                      builder: (context, total, __) {
+                                        return _buildStatCard(
+                                          context,
+                                          'إجمالي الوحدات',
+                                          '$total',
+                                          Icons.inventory_2_rounded,
+                                          AppColors.success,
+                                        );
+                                      },
                                     ),
                                   ),
                                 ],
@@ -201,31 +321,43 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
                         ),
                         // قائمة الكارتات
                         Expanded(
-                          child: Builder(
-                            builder: (context) {
+                          child: Selector<CasesProvider, List<LabCase>>(
+                            selector: (_, p) => p.filteredCases,
+                            builder: (context, filtered, __) {
                               final searchedCases = _searchQuery.isEmpty
-                                  ? prov.filteredCases
-                                  : prov.filteredCases.where((c) {
-                                      return c.caseName.toLowerCase().contains(_searchQuery) ||
-                                          c.doctorName.toLowerCase().contains(_searchQuery) ||
-                                          c.unitType.toLowerCase().contains(_searchQuery);
+                                  ? filtered
+                                  : filtered.where((c) {
+                                      final q = _searchQuery;
+                                      return c.caseName.toLowerCase().contains(q) ||
+                                          c.doctorName.toLowerCase().contains(q) ||
+                                          c.unitType.toLowerCase().contains(q);
                                     }).toList();
 
                               if (searchedCases.isEmpty) {
                                 return _buildEmptyState();
                               }
 
-                              return ListView.builder(
-                                padding: const EdgeInsets.all(16),
-                                itemCount: searchedCases.length,
-                                itemBuilder: (context, index) {
-                                  return _buildCaseCard(
-                                    context,
-                                    prov,
-                                    searchedCases[index],
-                                    index,
-                                  );
+                              return RefreshIndicator(
+                                onRefresh: () async {
+                                  // البيانات حية من Firestore، ننتظر تحديثاً سريعاً
+                                  await Future<void>.delayed(const Duration(milliseconds: 350));
                                 },
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: searchedCases.length,
+                                  itemBuilder: (context, index) {
+                                    final item = searchedCases[index];
+                                    return KeyedSubtree(
+                                      key: ValueKey(item.id),
+                                      child: _buildCaseCard(
+                                        context,
+                                        context.read<CasesProvider>(),
+                                        item,
+                                        index,
+                                      ),
+                                    );
+                                  },
+                                ),
                               );
                             },
                           ),
@@ -280,7 +412,7 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
                     final monthDate = DateTime(
                       DateTime.now().year,
                       DateTime.now().month - index,
-                      14,
+                      1,
                     );
                     final label = DateFormat('MMMM yyyy', 'ar').format(monthDate);
                     final isSelected = prov.selectedMonth?.year == monthDate.year &&
@@ -363,6 +495,64 @@ class _ManagerUserCasesScreenState extends State<ManagerUserCasesScreen> {
         );
       },
     );
+  }
+
+  void _showDateRangePicker(BuildContext context, CasesProvider prov) async {
+    try {
+      final DateTime? startPicked = await showDatePicker(
+        context: context,
+        initialDate: prov.startDate ?? DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now(),
+        helpText: 'اختر تاريخ البداية',
+        cancelText: 'إلغاء',
+        confirmText: 'التالي',
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (startPicked == null || !mounted) return;
+
+      final DateTime? endPicked = await showDatePicker(
+        context: context,
+        initialDate: prov.endDate ?? startPicked,
+        firstDate: startPicked,
+        lastDate: DateTime.now(),
+        helpText: 'اختر تاريخ النهاية',
+        cancelText: 'إلغاء',
+        confirmText: 'تطبيق',
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: AppColors.textPrimary,
+              ),
+            ),
+            child: child!,
+          );
+        },
+      );
+
+      if (mounted && endPicked != null) {
+        prov.setDateRange(startPicked, endPicked);
+      }
+    } catch (e) {
+      debugPrint('Error in date range picker: $e');
+    }
   }
 
   Widget _buildStatCard(

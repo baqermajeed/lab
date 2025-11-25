@@ -56,6 +56,8 @@ class UnitTypes {
     'Pmma printer',
     'Scan',
     'Opaque',
+    'BMA',
+    'DTX',
   ];
 }
 
